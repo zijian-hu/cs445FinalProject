@@ -7,8 +7,6 @@ import math
 import numpy as np
 import odometry
 import pid_controller
-import matplotlib
-import argparse
 import lab11_image
 
 
