@@ -35,9 +35,9 @@ class Run:
         self.odometry = Odometry()
 
         # alpha for tracker
-        self.alpha_x = 0.3
+        self.alpha_x = 0.6
         self.alpha_y = self.alpha_x
-        self.alpha_theta = 0.3
+        self.alpha_theta = 0.6
 
         self.pidTheta = PIDController(300, 5, 50, [-10, 10], [-200, 200], is_angle=True)
         self.pidDistance = PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
@@ -68,15 +68,10 @@ class Run:
                     goal_x = line.v[0]
                     goal_y = line.v[1]
 
-                if self.time.time() - last_check_time >= 0.2:
-                    self.tracker.update()
-                    self.filter.update()
-                    curr_x = self.filter.x
-                    curr_y = self.filter.y
-                    last_check_time = self.time.time()
-                else:
-                    curr_x = self.odometry.x
-                    curr_y = self.odometry.y
+                self.tracker.update()
+                self.filter.update()
+                curr_x = self.filter.x
+                curr_y = self.filter.y
 
                 goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
 
@@ -96,17 +91,11 @@ class Run:
                     state = self.create.update()
                     if state is not None:
                         self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
-                        if self.time.time() - last_check_time >= 0.2:
-                            self.tracker.update()
-                            self.filter.update()
-                            curr_x = self.filter.x
-                            curr_y = self.filter.y
-                            curr_theta = self.filter.theta
-                            last_check_time = self.time.time()
-                        else:
-                            curr_x = self.odometry.x
-                            curr_y = self.odometry.y
-                            curr_theta = self.odometry.theta
+                        self.tracker.update()
+                        self.filter.update()
+                        curr_x = self.filter.x
+                        curr_y = self.filter.y
+                        curr_theta = self.filter.theta
 
                         theta = math.atan2(math.sin(curr_theta), math.cos(curr_theta))
                         # print("[{},{},{}]".format(self.odometry.x, self.odometry.y,
@@ -119,9 +108,9 @@ class Run:
                         # improved version 2: fuse with velocity controller
                         distance = math.sqrt(
                             math.pow(goal_x - curr_x, 2) + math.pow(goal_y - curr_y, 2))
-                        output_distance = 2 * self.pidDistance.update(0, distance, self.time.time())
+                        output_distance = self.pidDistance.update(0, distance, self.time.time())
                         self.create.drive_direct(int(base_speed + output_distance), int(base_speed + output_distance))
-                        if distance < 0.15:
+                        if distance < 0.3:
                             break
 
                 self.create.drive_direct(0, 0)
