@@ -39,7 +39,11 @@ try:
     if platform.system() =='cli':
         libsimx = ct.CDLL(os.path.join(os.path.dirname(__file__), "remoteApi.dll"))
     elif platform.system() =='Windows':
-        libsimx = ct.CDLL(os.path.join(os.path.dirname(__file__), "remoteApi.dll"))
+        # libsimx = ct.CDLL(os.path.join(os.path.dirname(__file__), "remoteApi.dll"))
+        if platform.architecture()[0] == '64bit':
+            libsimx = ct.CDLL(os.path.join(os.path.dirname(__file__), "remoteApi64.dll"))
+        else:
+            libsimx = ct.CDLL(os.path.join(os.path.dirname(__file__), "remoteApi.dll"))
     elif platform.system() == 'Darwin':
         libsimx = ct.CDLL(os.path.join(os.path.dirname(__file__), "remoteApi.dylib"))
     else:

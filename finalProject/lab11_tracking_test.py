@@ -21,6 +21,6 @@ class Run:
                 y = r["position"]["y"]
                 z = r["position"]["z"]
                 yaw = r["orientation"]["y"]
-                print(x,y,z,math.degrees(yaw))
+                print(x, y, z, math.degrees(yaw))
 
             self.time.sleep(0.0)
