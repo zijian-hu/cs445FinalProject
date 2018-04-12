@@ -5,8 +5,12 @@ Use "python3 run.py --sim lab11_penholder_test" to execute
 from pyCreate2 import create2
 import math
 import numpy as np
-import odometry
-import pid_controller
+
+from pid_controller import PIDController
+from odometry import Odometry
+from complementary_filter import ComplementaryFilter
+from tracker import Tracker
+
 import lab11_image
 
 
@@ -25,11 +29,20 @@ class Run:
         self.create = factory.create_create()
         self.time = factory.create_time_helper()
         self.penholder = factory.create_pen_holder()
-        self.servo = factory.create_servo()
-        self.odometry = odometry.Odometry()
+        self.tracker = Tracker(factory.create_tracker, 1, sd_x=0.01, sd_y=0.01, sd_theta=0.01, rate=10)
 
-        self.pidTheta = pid_controller.PIDController(300, 5, 50, [-10, 10], [-200, 200], is_angle=True)
-        self.pidDistance = pid_controller.PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
+        self.servo = factory.create_servo()
+        self.odometry = Odometry()
+
+        # alpha for tracker
+        self.alpha_x = 0.5
+        self.alpha_y = self.alpha_x
+        self.alpha_theta = 0.6
+
+        self.pidTheta = PIDController(300, 5, 50, [-10, 10], [-200, 200], is_angle=True)
+        self.pidDistance = PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
+        self.filter = ComplementaryFilter(self.odometry, self.tracker,
+                                          (self.alpha_x, self.alpha_y, self.alpha_theta))
 
     def run(self):
         self.create.start()
@@ -43,6 +56,8 @@ class Run:
 
         base_speed = 100
         self.penholder.set_color(0.0, 1.0, 0.0)
+        start_time = self.time.time()
+        last_check_time = start_time
 
         for line in self.img.lines:
             for i in range(0, 2):
@@ -53,9 +68,9 @@ class Run:
                     goal_x = line.v[0]
                     goal_y = line.v[1]
 
-                goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
+                goal_theta = math.atan2(goal_y - self.filter.y, goal_x - self.filter.x)
 
-                speed_multiplier = 1
+                # speed_multiplier = 1
 
                 # not drawing while turning
                 self.penholder.go_to(0.0)
@@ -69,19 +84,21 @@ class Run:
 
                 while True:
                     state = self.create.update()
+                    query = self.tracker.query()
                     if state is not None:
                         self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
-                        theta = math.atan2(math.sin(self.odometry.theta), math.cos(self.odometry.theta))
+                        self.filter.update(query)
+                        theta = math.atan2(math.sin(self.filter.theta), math.cos(self.filter.theta))
                         # print("[{},{},{}]".format(self.odometry.x, self.odometry.y,
                         #                           math.degrees(self.odometry.theta)))
 
                         # print("goal_theta = {}, theta = {}".format(goal_theta, theta))
                         print("goal x,y = {:.3f}, {:.3f}, x,y = {:.3f}, {:.3f}".format(
-                            goal_x, goal_y, self.odometry.x, self.odometry.y))
+                            goal_x, goal_y, self.filter.x, self.filter.y))
 
                         # improved version 2: fuse with velocity controller
                         distance = math.sqrt(
-                            math.pow(goal_x - self.odometry.x, 2) + math.pow(goal_y - self.odometry.y, 2))
+                            math.pow(goal_x - self.filter.x, 2) + math.pow(goal_y - self.filter.y, 2))
                         output_distance = 2 * self.pidDistance.update(0, distance, self.time.time())
                         self.create.drive_direct(int(base_speed + output_distance), int(base_speed + output_distance))
                         if distance < 0.15:
@@ -104,6 +121,11 @@ class Run:
             if state is not None:
                 self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
                 # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
+
+            query = self.tracker.query()
+            if query is not None:
+                self.filter.update(query)
+
             t = self.time.time()
             if start + time_in_sec <= t:
                 break
