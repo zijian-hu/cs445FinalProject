@@ -42,11 +42,17 @@ class Run:
         ])
 
         base_speed = 100
+        self.penholder.set_color(0.0, 1.0, 0.0)
 
         for line in self.img.lines:
             for i in range(0, 2):
-                goal_x = line.u[i]
-                goal_y = line.v[i]
+                goal_x = line.u[0]
+                goal_y = line.u[1]
+
+                if i == 1:
+                    goal_x = line.v[0]
+                    goal_y = line.v[1]
+
                 goal_theta = math.atan2(goal_y - self.odometry.y, goal_x - self.odometry.x)
 
                 speed_multiplier = 1
