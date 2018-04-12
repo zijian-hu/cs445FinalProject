@@ -12,8 +12,17 @@ class ComplementaryFilter:
         self.y = 0.0
         self.theta = 0.0
 
-    def update(self):
+    def update(self, query=None):
         odometry_list = (self.odometry.x, self.odometry.y, self.odometry.theta)
-        tracker_list = (self.tracker.x, self.tracker.y, self.tracker.theta)
 
-        self.x, self.y, self.theta = self.alpha * odometry_list + (1 - self.alpha) * tracker_list
+        if query is None:
+            self.x, self.y, self.theta = odometry_list
+            return
+
+        tracker_list = (
+            query["position"]["x"],
+            query["position"]["y"],
+            query["orientation"]["y"]
+        )
+
+        self.x, self.y, self.theta = self.alpha * tracker_list + (1 - self.alpha) * odometry_list
