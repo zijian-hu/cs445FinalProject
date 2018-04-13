@@ -46,8 +46,16 @@ class Run:
                                           (self.alpha_x, self.alpha_y, self.alpha_theta))
 
         # constant
-        self.debug_mode = False
         self.robot_marker_distance = 0.1906
+
+        # debug vars
+        self.debug_mode = True
+        self.odo = []
+        self.actual = []
+        self.xi = 0
+        self.yi = 0
+        self.init = True
+
 
     def run(self):
         self.create.start()
@@ -63,21 +71,6 @@ class Run:
         self.penholder.set_color(0.0, 1.0, 0.0)
         start_time = self.time.time()
         last_check_time = start_time
-
-        # debug code
-        if self.debug_mode:
-            for line in self.img.lines:
-                # draw lines
-                plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
-
-                # draw paths
-                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
-                plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
-                          math.cos(theta) * self.robot_marker_distance + line.v[0]],
-                         [math.sin(theta) * self.robot_marker_distance + line.u[1],
-                          math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                         'lime')
-            plt.show()
 
         for line in self.img.lines:
             for i in range(0, 2):
@@ -110,6 +103,13 @@ class Run:
                     query = self.tracker.update()
 
                     if state is not None:
+
+                        if self.debug_mode:
+                            self.odo.append((self.odometry.x, self.odometry.y))
+                            self.actual.append(
+                                (self.create.sim_get_position()[0] - self.xi,
+                                 self.create.sim_get_position()[1] - self.yi))
+
                         self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
                         self.tracker.update()
                         self.filter.update()
@@ -137,6 +137,27 @@ class Run:
                 self.sleep(0.01)
                 print()
 
+        # print odo graph
+        if self.debug_mode:
+            x, y = zip(*self.odo)
+            a, b = zip(*self.actual)
+            plt.plot(x, y, color='red')
+            plt.plot(a, b, color='green')
+
+            if self.debug_mode:
+                for line in self.img.lines:
+                    # draw lines
+                    plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
+
+                    # draw paths
+                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
+                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                             'lime')
+            plt.show()
+
         self.create.stop()
 
     def sleep(self, time_in_sec):
@@ -150,6 +171,12 @@ class Run:
             if state is not None:
                 self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
                 # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
+
+                if self.debug_mode:
+                    self.odo.append((self.odometry.x, self.odometry.y))
+                    self.actual.append(
+                        (self.create.sim_get_position()[0] - self.xi,
+                         self.create.sim_get_position()[1] - self.yi))
 
             self.tracker.update()
 
