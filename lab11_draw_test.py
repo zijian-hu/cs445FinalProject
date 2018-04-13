@@ -5,6 +5,7 @@ Use "python3 run.py --sim lab11_penholder_test" to execute
 from pyCreate2 import create2
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 
 from pid_controller import PIDController
 from odometry import Odometry
@@ -44,6 +45,10 @@ class Run:
         self.filter = ComplementaryFilter(self.odometry, self.tracker,
                                           (self.alpha_x, self.alpha_y, self.alpha_theta))
 
+        # constant
+        self.debug_mode = False
+        self.robot_marker_distance = 0.1906
+
     def run(self):
         self.create.start()
         self.create.safe()
@@ -59,14 +64,27 @@ class Run:
         start_time = self.time.time()
         last_check_time = start_time
 
+        # debug code
+        if self.debug_mode:
+            for line in self.img.lines:
+                # draw lines
+                plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
+
+                # draw paths
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
+                plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                          math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                         [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                          math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                         'lime')
+            plt.show()
+
         for line in self.img.lines:
             for i in range(0, 2):
-                goal_x = line.u[0]
-                goal_y = line.u[1]
+                goal_x, goal_y = self.draw_coords(line, at_start=True)
 
                 if i == 1:
-                    goal_x = line.v[0]
-                    goal_y = line.v[1]
+                    goal_x, goal_y = self.draw_coords(line, at_start=False)
 
                 goal_theta = math.atan2(goal_y - self.filter.y, goal_x - self.filter.x)
 
@@ -84,7 +102,7 @@ class Run:
 
                 while True:
                     state = self.create.update()
-                    query = self.tracker.query()
+                    query = self.tracker.update()
                     if state is not None:
                         self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
                         self.filter.update(query)
@@ -122,13 +140,26 @@ class Run:
                 self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
                 # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
 
-            query = self.tracker.query()
+            query = self.tracker.update()
             if query is not None:
                 self.filter.update(query)
 
             t = self.time.time()
             if start + time_in_sec <= t:
                 break
+
+    # gives coordinates to draw the lines correctly
+    # line: segment to be drawn
+    # at_start: set true to retun the first coordinate, set false for the second coordinate
+    # returns the x, y coordinates offset
+    def draw_coords(self, line, at_start):
+        # calculate angle of the line
+        theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi/2
+
+        if at_start:
+            return math.cos(theta)*self.robot_marker_distance + line.u[0], math.sin(theta)*self.robot_marker_distance + line.u[1]
+        else:
+            return math.cos(theta)*self.robot_marker_distance + line.v[0], math.sin(theta)*self.robot_marker_distance + line.v[1]
 
     def go_to_angle(self, goal_theta):
         while math.fabs(math.atan2(
