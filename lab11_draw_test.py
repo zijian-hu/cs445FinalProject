@@ -40,7 +40,7 @@ class Run:
         self.alpha_y = self.alpha_x
         self.alpha_theta = 0.6
 
-        self.pidTheta = PIDController(300, 5, 50, [-10, 10], [-200, 200], is_angle=True)
+        self.pidTheta = PIDController(500, 5, 50, [-10, 10], [-200, 200], is_angle=True)
         self.pidDistance = PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
         self.filter = ComplementaryFilter(self.odometry, self.tracker,
                                           (self.alpha_x, self.alpha_y, self.alpha_theta))
@@ -79,6 +79,8 @@ class Run:
                 if i == 1:
                     goal_x, goal_y = self.draw_coords(line, at_start=False)
 
+                print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+
                 self.tracker.update()
                 self.filter.update()
                 curr_x = self.filter.x
@@ -92,11 +94,10 @@ class Run:
                 self.penholder.go_to(0.0)
                 self.go_to_angle(goal_theta)
 
-                print("goal x,y = {:.3f}, {:.3f}".format(goal_x, goal_y))
                 if i == 1:
                     # start drawing
                     self.penholder.go_to(-0.025)
-                    print("draw!")
+                    print("Draw!")
 
                 while True:
                     state = self.create.update()
@@ -129,34 +130,16 @@ class Run:
                         distance = math.sqrt(
                             math.pow(goal_x - curr_x, 2) + math.pow(goal_y - curr_y, 2))
                         output_distance = self.pidDistance.update(0, distance, self.time.time())
-                        self.create.drive_direct(int(base_speed + output_distance), int(base_speed + output_distance))
+                        output_theta = self.pidTheta.update(theta, curr_theta, self.time.time())
+                        self.create.drive_direct(int(base_speed + output_distance - output_theta),
+                                                 int(base_speed + output_distance + output_theta))
                         if distance < 0.3:
                             break
 
+                # draw graph after every line segment
+                self.draw_graph()
                 self.create.drive_direct(0, 0)
                 self.sleep(0.01)
-                print()
-
-        # print odo graph
-        if self.debug_mode:
-            x, y = zip(*self.odo)
-            a, b = zip(*self.actual)
-            plt.plot(x, y, color='red')
-            plt.plot(a, b, color='green')
-
-            if self.debug_mode:
-                for line in self.img.lines:
-                    # draw lines
-                    plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
-
-                    # draw paths
-                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
-                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
-                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
-                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
-                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                             'lime')
-            plt.show()
 
         self.create.stop()
 
@@ -208,3 +191,25 @@ class Run:
             self.create.drive_direct(int(+output_theta), int(-output_theta))
             self.sleep(0.01)
         self.create.drive_direct(0, 0)
+
+    def draw_graph(self):
+        # show drawing progress after each line segment is drawn
+        if self.debug_mode:
+            if len(self.odo) is not 0:
+                x, y = zip(*self.odo)
+                a, b = zip(*self.actual)
+                plt.plot(x, y, color='red')
+                plt.plot(a, b, color='green')
+
+                for line in self.img.lines:
+                    # draw lines
+                    plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
+
+                    # draw paths
+                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
+                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                             'lime')
+            plt.show()
