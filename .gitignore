@@ -56,7 +56,6 @@ local.properties
 **/.idea/tasks.xml
 **/.idea/dataSources/
 **/.idea/dictionaries
-**/.idea/*
 !*.iml
 *.iws
 out/
@@ -89,4 +88,3 @@ package-lock.json
 
 # Python
 __pycache__/
-*.iml
