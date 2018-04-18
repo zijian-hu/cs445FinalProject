@@ -57,5 +57,8 @@ for i in range(len(img.lines)):
     open_list = open_list[open_list != arg_min_dist]
 
 way_points = np.array(way_points)
-plt.plot(way_points[:, 0], way_points[:, 1])
+for i in np.arange(0, way_points.shape[0], 2):
+    plt.plot([way_points[i, 0], way_points[i + 1, 0]], [way_points[i, 1], way_points[i + 1, 1]],
+             img.lines[int(way_points[i + 1, 2])].color)
+
 plt.show()
