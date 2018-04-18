@@ -29,7 +29,7 @@ for i in range(len(img.lines)):
 
         dist_v = get_dist(x, y, *img.lines[j].v)
         if min_dist > dist_v:
-            min_dist = dist_u
+            min_dist = dist_v
             arg_min_dist = j
             is_u = False
 
