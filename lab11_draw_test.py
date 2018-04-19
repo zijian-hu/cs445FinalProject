@@ -167,11 +167,11 @@ class Run:
         else:
             theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
             if at_start:
-                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
-                       math.sin(theta) * self.robot_marker_distance + line.u[1]
-            else:
                 return math.cos(theta) * self.robot_marker_distance + line.v[0], \
                        math.sin(theta) * self.robot_marker_distance + line.v[1]
+            else:
+                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
+                       math.sin(theta) * self.robot_marker_distance + line.u[1]
 
     def go_to_angle(self, goal_theta):
         curr_theta = self.filter.theta
