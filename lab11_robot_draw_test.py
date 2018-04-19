@@ -37,14 +37,14 @@ class Run:
         self.odometry = Odometry()
 
         # alpha for tracker
-        self.alpha_x = 0.6
+        self.alpha_x = 0.4
         self.alpha_y = self.alpha_x
-        self.alpha_theta = 0.6
+        self.alpha_theta = 0.4
 
         # init controllers
         self.pidTheta = PIDController(400, 5, 50, [-10, 10], [-200, 200], is_angle=True)
         self.pidDistance = PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
-        self.filter = ComplementaryFilter(self.odometry, self.odometry, self.time, 0.2,
+        self.filter = ComplementaryFilter(self.odometry, None, self.time, 0.2,
                                           (self.alpha_x, self.alpha_y, self.alpha_theta))
 
         # parameters
@@ -109,14 +109,6 @@ class Run:
                     state = self.update()
 
                     if state is not None:
-
-                        # add data points to debug graph
-                        if self.debug_mode:
-                            self.odo.append((self.odometry.x, self.odometry.y))
-                            self.actual.append(
-                                (self.create.sim_get_position()[0] - self.xi,
-                                 self.create.sim_get_position()[1] - self.yi))
-
                         curr_x = self.filter.x
                         curr_y = self.filter.y
                         curr_theta = self.filter.theta
@@ -135,11 +127,10 @@ class Run:
                         if distance < 0.05:
                             break
 
-                # draw graph after every line segment
-                self.draw_graph()
                 self.create.drive_direct(0, 0)
                 self.sleep(0.01)
 
+        self.draw_graph()
         self.create.stop()
 
     def drive(self, theta, distance, speed):
@@ -176,11 +167,11 @@ class Run:
         else:
             theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
             if at_start:
-                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
-                       math.sin(theta) * self.robot_marker_distance + line.u[1]
-            else:
                 return math.cos(theta) * self.robot_marker_distance + line.v[0], \
                        math.sin(theta) * self.robot_marker_distance + line.v[1]
+            else:
+                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
+                       math.sin(theta) * self.robot_marker_distance + line.u[1]
 
     def go_to_angle(self, goal_theta):
         curr_theta = self.filter.theta
@@ -204,7 +195,7 @@ class Run:
             if len(self.odo) is not 0 and len(self.actual) is not 0:
                 x, y = zip(*self.odo)
                 a, b = zip(*self.actual)
-                plt.plot(x, y, color='red', label='Odometry path')
+                plt.plot(x, y, color='red', label='Sensor path')
                 plt.plot(a, b, color='green', label='Actual path', linewidth=1.4)
                 self.odo = []
                 self.actual = []
@@ -246,7 +237,7 @@ class Run:
             # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
 
             if self.debug_mode:
-                self.odo.append((self.odometry.x, self.odometry.y))
+                self.odo.append((self.filter.x, self.filter.y))
                 self.actual.append(
                     (self.create.sim_get_position()[0] - self.xi,
                      self.create.sim_get_position()[1] - self.yi))
