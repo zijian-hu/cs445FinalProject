@@ -76,10 +76,10 @@ class Run:
 
         for line in self.img.lines:
             for i in range(0, 2):
-                goal_x, goal_y = self.draw_coords(line, at_start=True)
+                goal_x, goal_y = self.draw_coords(line, is_parallel=True ,at_start=True)
 
                 if i == 1:
-                    goal_x, goal_y = self.draw_coords(line, at_start=False)
+                    goal_x, goal_y = self.draw_coords(line, is_parallel=True, at_start=False)
 
                 print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
 
@@ -160,16 +160,25 @@ class Run:
     # line: segment to be drawn
     # at_start: set true to retun the first coordinate, set false for the second coordinate
     # returns the x, y coordinates offset
-    def draw_coords(self, line, at_start):
-        # calculate angle of the line
-        theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi/2
-
-        if at_start:
-            return math.cos(theta)*self.robot_marker_distance + line.u[0],\
-                   math.sin(theta)*self.robot_marker_distance + line.u[1]
+    def draw_coords(self, line, at_start ,is_parallel):
+        if is_parallel:
+            theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi/2
+            if at_start:
+                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
+                       math.sin(theta) * self.robot_marker_distance + line.u[1]
+            else:
+                return math.cos(theta) * self.robot_marker_distance + line.v[0], \
+                       math.sin(theta) * self.robot_marker_distance + line.v[1]
         else:
-            return math.cos(theta)*self.robot_marker_distance + line.v[0],\
-                   math.sin(theta)*self.robot_marker_distance + line.v[1]
+            theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi/2
+            if at_start:
+                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
+                       math.sin(theta) * self.robot_marker_distance + line.u[1]
+            else:
+                return math.cos(theta) * self.robot_marker_distance + line.v[0], \
+                       math.sin(theta) * self.robot_marker_distance + line.v[1]
+
+
 
     def go_to_angle(self, goal_theta):
         curr_theta = self.filter.theta
@@ -199,9 +208,11 @@ class Run:
                 self.odo = []
                 self.actual = []
 
+                line_num = 0
                 for line in self.img.lines:
                     # draw lines
                     plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
+                    plt.annotate(s=line_num, xy=(line.v[0], line.v[1]) , xytext=(line.u[0], line.u[1]), arrowprops=dict(arrowstyle='-|>'))
 
                     # draw paths
                     theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
@@ -209,8 +220,17 @@ class Run:
                               math.cos(theta) * self.robot_marker_distance + line.v[0]],
                              [math.sin(theta) * self.robot_marker_distance + line.u[1],
                               math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                             'aqua',
-                             label='Drawing path')
+                             'aqua')
+
+                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
+                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                             'aqua')
+
+                    line_num += 1
+            plt.legend()
             plt.show()
 
     # updates odometry, filter, and tracker
@@ -221,7 +241,7 @@ class Run:
 
         if state is not None:
             self.odometry.update(state.leftEncoderCounts, state.rightEncoderCounts)
-            #print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
+            # print("[{},{},{}]".format(self.odometry.x, self.odometry.y, math.degrees(self.odometry.theta)))
 
             if self.debug_mode:
                 self.odo.append((self.odometry.x, self.odometry.y))
