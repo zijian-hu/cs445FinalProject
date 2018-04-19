@@ -1,6 +1,6 @@
-# https://codeshare.io/5wlweB
 import numpy as np
 import math
+
 
 class ComplementaryFilter:
     def __init__(self, odometry, tracker, time, update_interval, alpha):
@@ -18,12 +18,17 @@ class ComplementaryFilter:
         self.theta = 0.0
 
     def update(self):
+        if self.tracker is None:
+            self.x = self.odometry.x
+            self.y = self.odometry.y
+            self.theta = self.odometry.theta
+
         # convert odometry angles to fit in the range -pi to pi
         odometry_converted = self.odometry.theta
         if self.odometry.theta > math.pi:
-            odometry_converted = self.odometry.theta - 2*math.pi
+            odometry_converted = self.odometry.theta - 2 * math.pi
         elif self.odometry.theta < -math.pi:
-            odometry_converted = self.odometry.theta + 2*math.pi
+            odometry_converted = self.odometry.theta + 2 * math.pi
 
         odometry_list = (self.odometry.x, self.odometry.y, odometry_converted)
         tracker_list = (self.tracker.x, self.tracker.y, self.tracker.theta)
