@@ -16,7 +16,7 @@ class PathFinder:
         way_points_draw = []
         open_list = np.arange(0, len(img.lines))
         for i in range(len(img.lines)):
-            min_dist = math.inf
+            min_dist = float('inf')
             arg_min_dist = open_list[0]
             is_u = False
 
