@@ -6,7 +6,8 @@ from pyCreate2 import create2
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-
+from lab11_image import Line
+from lab11_image import BezierPath
 from pid_controller import PIDController
 from odometry import Odometry
 from complementary_filter import ComplementaryFilter
@@ -25,8 +26,9 @@ class Run:
         """
 
         # read file and get all paths
-        # self.img = lab11_image.VectorImage(input("Enter the image name: "))
         self.img = lab11_image.VectorImage("lab11_img1.yaml")
+        self.allLines = self.img.lines
+        #self.allLines.append(self.img.paths)
 
         # init objects
         self.create = factory.create_create()
@@ -44,7 +46,7 @@ class Run:
         # init controllers
         self.pidTheta = PIDController(400, 5, 50, [-10, 10], [-200, 200], is_angle=True)
         self.pidDistance = PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
-        self.filter = ComplementaryFilter(self.odometry, self.tracker, self.time, 0.2,
+        self.filter = ComplementaryFilter(self.odometry, self.tracker, self.time, 0.4,
                                           (self.alpha_x, self.alpha_y, self.alpha_theta))
 
         # parameters
@@ -72,12 +74,68 @@ class Run:
         ])
 
         self.penholder.set_color(0.0, 1.0, 0.0)
+
         start_time = self.time.time()
 
         line_index_list = PathFinder.find_path(self.img)
 
+        self.draw_graph()
+
+        # generate all points
+        ts = np.linspace(0, 1.0, 100)
+        result = np.empty((0, 3))
+        for i in range(0, self.img.paths[0].num_segments()):
+            for t in ts[:-2]:
+                s = self.img.paths[0].eval(i, t)
+                result = np.vstack([result, s])
+
+        path_points = self.draw_path_coords(result, True)
+
+
+        # goto start of the curve and begin drawing
+        for i in range(0, 2):
+            # go to start of curve
+            goal_x, goal_y = path_points[0, 0], path_points[0, 1]
+            print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+
+            if i == 1:
+                goal_x, goal_y = path_points[1, 0], path_points[1, 1]
+
+            # turn to goal
+            self.tracker.update()
+            self.filter.update()
+            curr_x = self.filter.x
+            curr_y = self.filter.y
+
+            goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+            if i == 1:
+                goal_theta = math.atan2(goal_y - path_points[0, 1], goal_x - path_points[0, 0])
+
+            # not drawing while turning0
+            self.penholder.go_to(0.0)
+            self.go_to_angle(goal_theta)
+            self.go_to_goal(goal_x, goal_y)
+
+        # start drawing
+        self.penholder.go_to(-0.025)
+        prev_base_speed = self.base_speed
+        self.base_speed = 25
+        print("Draw!")
+
+        # draw the rest of the curve
+        for i in range(2, len(path_points), 10):
+            goal_x, goal_y = path_points[i, 0], path_points[i, 1]
+            print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+            self.go_to_goal(goal_x, goal_y, useOdo=False)
+
+        # stop drawing
+        self.base_speed = prev_base_speed
+        self.penholder.go_to(0.0)
+        self.draw_graph()
+
         for index in range(line_index_list.shape[0]):
-            line = self.img.lines[int(line_index_list[index, 0])]
+            line = self.allLines[int(line_index_list[index, 0])]
+
             is_parallel = line_index_list[index, 1]
             for i in range(0, 2):
                 goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
@@ -94,8 +152,6 @@ class Run:
 
                 goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
 
-                # speed_multiplier = 1
-
                 # not drawing while turning
                 self.penholder.go_to(0.0)
                 self.go_to_angle(goal_theta)
@@ -105,30 +161,7 @@ class Run:
                     self.penholder.go_to(-0.025)
                     print("Draw!")
 
-                while True:
-                    state = self.update()
-
-                    if state is not None:
-                        curr_x = self.filter.x
-                        curr_y = self.filter.y
-                        curr_theta = self.filter.theta
-
-                        distance = math.sqrt(math.pow(goal_x - curr_x, 2) + math.pow(goal_y - curr_y, 2))
-                        output_distance = self.pidDistance.update(0, distance, self.time.time())
-
-                        theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
-                        output_theta = self.pidTheta.update(curr_theta, theta, self.time.time())
-
-                        print("goal x,y = {:.3f}, {:.3f}, x,y = {:.3f}, {:.3f}".format(
-                            goal_x, goal_y, curr_x, curr_y))
-
-                        self.drive(output_theta, output_distance, self.base_speed)
-
-                        if distance < 0.05:
-                            break
-
-                self.create.drive_direct(0, 0)
-                self.sleep(0.01)
+                self.go_to_goal(goal_x, goal_y)
 
         self.draw_graph()
         self.create.stop()
@@ -155,23 +188,73 @@ class Run:
     # line: segment to be drawn
     # at_start: set true to retun the first coordinate, set false for the second coordinate
     # returns the x, y coordinates offset
-    def draw_coords(self, line, at_start, is_parallel=True):
+    def draw_coords(self, line, at_start=True, is_parallel=True):
+            if is_parallel:
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
+                if at_start:
+                    return math.cos(theta) * self.robot_marker_distance + line.u[0], \
+                           math.sin(theta) * self.robot_marker_distance + line.u[1]
+                else:
+                    return math.cos(theta) * self.robot_marker_distance + line.v[0], \
+                           math.sin(theta) * self.robot_marker_distance + line.v[1]
+            else:
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
+                if at_start:
+                    return math.cos(theta) * self.robot_marker_distance + line.v[0], \
+                           math.sin(theta) * self.robot_marker_distance + line.v[1]
+                else:
+                    return math.cos(theta) * self.robot_marker_distance + line.u[0], \
+                           math.sin(theta) * self.robot_marker_distance + line.u[1]
+
+    def draw_path_coords(self, result, is_parallel):
+        final_result = np.empty((0, 2))
         if is_parallel:
-            theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
-            if at_start:
-                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
-                       math.sin(theta) * self.robot_marker_distance + line.u[1]
-            else:
-                return math.cos(theta) * self.robot_marker_distance + line.v[0], \
-                       math.sin(theta) * self.robot_marker_distance + line.v[1]
+            for i in range(0, len(result)-1):
+                theta = math.atan2(result[i, 1] - result[i + 1, 1],
+                                   result[i, 0] - result[i + 1, 0]) - math.pi/2
+                s = math.cos(theta) * self.robot_marker_distance + result[i, 0], \
+                    math.sin(theta) * self.robot_marker_distance + result[i, 1]
+                final_result = np.vstack([final_result, s])
         else:
-            theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
-            if at_start:
-                return math.cos(theta) * self.robot_marker_distance + line.v[0], \
-                       math.sin(theta) * self.robot_marker_distance + line.v[1]
-            else:
-                return math.cos(theta) * self.robot_marker_distance + line.u[0], \
-                       math.sin(theta) * self.robot_marker_distance + line.u[1]
+            for i in range(len(result)-1, 1, -1):
+                theta = math.atan2(result[i, 1] - result[i - 1, 1],
+                                   result[i, 0] - result[i - 1, 0]) - math.pi/2
+                s = math.cos(theta) * self.robot_marker_distance + result[i, 0], \
+                    math.sin(theta) * self.robot_marker_distance + result[i, 1]
+                final_result = np.vstack([final_result, s])
+        return final_result
+
+
+    def go_to_goal(self, goal_x, goal_y, useOdo = False):
+        while True:
+            state = self.update()
+
+            if state is not None:
+                if useOdo:
+                    curr_x = self.odometry.x
+                    curr_y = self.odometry.y
+                    curr_theta = self.odometry.theta
+                else:
+                    curr_x = self.filter.x
+                    curr_y = self.filter.y
+                    curr_theta = self.filter.theta
+
+                distance = math.sqrt(math.pow(goal_x - curr_x, 2) + math.pow(goal_y - curr_y, 2))
+                output_distance = self.pidDistance.update(0, distance, self.time.time())
+
+                theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+                output_theta = self.pidTheta.update(curr_theta, theta, self.time.time())
+
+                print("goal x,y = {:.3f}, {:.3f}, x,y = {:.3f}, {:.3f}".format(
+                    goal_x, goal_y, curr_x, curr_y))
+
+                self.drive(output_theta, output_distance, self.base_speed)
+
+                if distance < 0.05:
+                    self.create.drive_direct(0, 0)
+                    break
+
+                self.sleep(0.01)
 
     def go_to_angle(self, goal_theta):
         curr_theta = self.filter.theta
@@ -200,29 +283,44 @@ class Run:
                 self.odo = []
                 self.actual = []
 
-                line_num = 0
-                for line in self.img.lines:
-                    # draw lines
-                    plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
-                    plt.annotate(s=line_num, xy=(line.v[0], line.v[1]), xytext=(line.u[0], line.u[1]),
-                                 arrowprops=dict(arrowstyle='-|>'))
+            ts = np.linspace(0, 1.0, 100)
+            result = np.empty((0, 3))
+            for i in range(0, self.img.paths[0].num_segments()):
+                for t in ts[:-2]:
+                    s = self.img.paths[0].eval(i, t)
+                    result = np.vstack([result, s])
 
-                    # draw paths
-                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
-                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
-                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
-                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
-                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                             'aqua')
+            plt.plot(result[:, 0], result[:, 1], self.img.paths[0].color)
 
-                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
-                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
-                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
-                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
-                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                             'aqua')
+            path_points = self.draw_path_coords(result, True)
+            plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
+            path_points = self.draw_path_coords(result, False)
+            plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
 
-                    line_num += 1
+            line_num = 0
+
+            for line in self.img.lines:
+                # draw lines
+                plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
+                plt.annotate(s=line_num, xy=(line.v[0], line.v[1]), xytext=(line.u[0], line.u[1]),
+                             arrowprops=dict(arrowstyle='-|>'))
+
+                # draw paths
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
+                plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                          math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                         [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                          math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                         'aqua')
+
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
+                plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                          math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                         [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                          math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                         'aqua')
+
+                line_num += 1
             plt.legend()
             plt.show()
 

@@ -17,6 +17,8 @@ class ComplementaryFilter:
         self.y = 0.0
         self.theta = 0.0
 
+        self.updateFlag = True
+
     def update(self):
         if self.tracker is None:
             self.x = self.odometry.x
@@ -35,11 +37,14 @@ class ComplementaryFilter:
 
         # update odometry in set intervals
         # TODO add low pass pass filtering
-        if self.time.time() - self.time_last_update > self.update_interval:
+        if self.time.time() - self.time_last_update > self.update_interval and self.updateFlag is True:
             self.update_odometry()
             self.time_last_update = self.time.time()
 
-        self.x, self.y, self.theta = self.alpha * tracker_list + (1 - self.alpha) * odometry_list
+        if odometry_converted * self.tracker.theta > 0:
+            self.x, self.y, self.theta = self.alpha * tracker_list + (1 - self.alpha) * odometry_list
+        else:
+            self.x, self.y, self.theta = odometry_list
 
     def update_odometry(self):
         print('=== Odometry updated ===')
