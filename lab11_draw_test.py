@@ -28,7 +28,7 @@ class Run:
         # read file and get all paths
         self.img = lab11_image.VectorImage("lab11_img1.yaml")
         self.allLines = self.img.lines
-        self.allLines.append(self.img.paths)
+        #self.allLines.append(self.img.paths)
 
         # init objects
         self.create = factory.create_create()
@@ -74,7 +74,10 @@ class Run:
         ])
 
         self.penholder.set_color(0.0, 1.0, 0.0)
+
         start_time = self.time.time()
+
+        self.draw_graph()
 
         line_index_list = PathFinder.find_path(self.img)
 
@@ -199,24 +202,23 @@ class Run:
                            math.sin(theta) * self.robot_marker_distance + line.u[1]
 
     def draw_path_coords(self, result, is_parallel):
-        final_result = np.empty((0, 3))
-
+        final_result = np.empty((0, 2))
         if is_parallel:
-            for i in range(1, len(result)):
-                theta = math.atan2(result[i, 0] - result[i - 1, 0],
-                                   result[i, 1] - result[i - 1, 1]) + math.pi / 2
-                s = math.cos(theta) * self.robot_marker_distance + result[i, 0], \
-                    math.sin(theta) * self.robot_marker_distance + result[i, 1]
+            for i in range(0, len(result)-1):
+                theta = math.atan2(result[i + 1, 0] - result[i, 0],
+                                   result[i + 1, 1] - result[i, 1])
+                s = math.cos(theta) * self.robot_marker_distance + result[i + 1, 0], \
+                    math.sin(theta) * self.robot_marker_distance + result[i + 1, 1]
                 final_result = np.vstack([final_result, s])
         else:
-            for i in range(len(result)-1, 0):
-                theta = math.atan2(result[i, 0] - result[i + 1, 0],
-                                   result[i, 1] - result[i + 1, 1]) - math.pi / 2
-                s = math.cos(theta) * self.robot_marker_distance + result[i, 0], \
-                    math.sin(theta) * self.robot_marker_distance + result[i, 1]
+            for i in range(len(result)-1, 1, -1):
+                theta = math.atan2(result[i - 1, 0] - result[i, 0],
+                                   result[i - 1, 1] - result[i, 1])
+                s = math.cos(theta) * self.robot_marker_distance + result[i - 1, 0], \
+                    math.sin(theta) * self.robot_marker_distance + result[i - 1, 1]
                 final_result = np.vstack([final_result, s])
-
         return final_result
+
 
     def go_to_goal(self, goal_x, goal_y):
         while True:
@@ -271,29 +273,45 @@ class Run:
                 self.odo = []
                 self.actual = []
 
-                line_num = 0
-                for line in self.img.lines:
-                    # draw lines
-                    plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
-                    plt.annotate(s=line_num, xy=(line.v[0], line.v[1]), xytext=(line.u[0], line.u[1]),
-                                 arrowprops=dict(arrowstyle='-|>'))
+            ts = np.linspace(0, 1.0, 100)
+            result = np.empty((0, 3))
+            for i in range(0, self.img.paths[0].num_segments()):
+                for t in ts[:-2]:
+                    s = self.img.paths[0].eval(i, t)
+                    result = np.vstack([result, s])
 
-                    # draw paths
-                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
-                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
-                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
-                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
-                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                             'aqua')
+            plt.plot(result[:, 0], result[:, 1], self.img.paths[0].color)
 
-                    theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
-                    plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
-                              math.cos(theta) * self.robot_marker_distance + line.v[0]],
-                             [math.sin(theta) * self.robot_marker_distance + line.u[1],
-                              math.sin(theta) * self.robot_marker_distance + line.v[1]],
-                             'aqua')
+            path_points = self.draw_path_coords(result, True)
+            plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
+            path_points = self.draw_path_coords(result, False)
+            print(path_points)
+            plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
 
-                    line_num += 1
+            line_num = 0
+
+            for line in self.img.lines:
+                # draw lines
+                plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
+                plt.annotate(s=line_num, xy=(line.v[0], line.v[1]), xytext=(line.u[0], line.u[1]),
+                             arrowprops=dict(arrowstyle='-|>'))
+
+                # draw paths
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
+                plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                          math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                         [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                          math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                         'aqua')
+
+                theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) - math.pi / 2
+                plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
+                          math.cos(theta) * self.robot_marker_distance + line.v[0]],
+                         [math.sin(theta) * self.robot_marker_distance + line.u[1],
+                          math.sin(theta) * self.robot_marker_distance + line.v[1]],
+                         'aqua')
+
+                line_num += 1
             plt.legend()
             plt.show()
 
