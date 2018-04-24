@@ -119,6 +119,7 @@ class Run:
         # start drawing
         self.penholder.go_to(-0.025)
         prev_base_speed = self.base_speed
+        self.filter.updateFlag = False
         self.base_speed = 25
         print("Draw!")
 
@@ -130,8 +131,9 @@ class Run:
 
         # stop drawing
         self.base_speed = prev_base_speed
+        self.filter.updateFlag = True
         self.penholder.go_to(0.0)
-        self.draw_graph()
+        # self.draw_graph()
 
         for index in range(line_index_list.shape[0]):
             line = self.allLines[int(line_index_list[index, 0])]
