@@ -46,7 +46,7 @@ class Run:
         # init controllers
         self.pidTheta = PIDController(400, 5, 50, [-10, 10], [-200, 200], is_angle=True)
         self.pidDistance = PIDController(1000, 0, 50, [0, 0], [-200, 200], is_angle=False)
-        self.filter = ComplementaryFilter(self.odometry, self.tracker, self.time, 0.2,
+        self.filter = ComplementaryFilter(self.odometry, self.tracker, self.time, 0.4,
                                           (self.alpha_x, self.alpha_y, self.alpha_theta))
 
         # parameters
@@ -77,86 +77,91 @@ class Run:
 
         start_time = self.time.time()
 
+        line_index_list = PathFinder.find_path(self.img)
+
         self.draw_graph()
 
-        line_index_list = PathFinder.find_path(self.img)
+        # generate all points
+        ts = np.linspace(0, 1.0, 100)
+        result = np.empty((0, 3))
+        for i in range(0, self.img.paths[0].num_segments()):
+            for t in ts[:-2]:
+                s = self.img.paths[0].eval(i, t)
+                result = np.vstack([result, s])
+
+        path_points = self.draw_path_coords(result, True)
+
+
+        # goto start of the curve and begin drawing
+        for i in range(0, 2):
+            # go to start of curve
+            goal_x, goal_y = path_points[0, 0], path_points[0, 1]
+            print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+
+            if i == 1:
+                goal_x, goal_y = path_points[1, 0], path_points[1, 1]
+
+            # turn to goal
+            self.tracker.update()
+            self.filter.update()
+            curr_x = self.filter.x
+            curr_y = self.filter.y
+
+            goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+            if i == 1:
+                goal_theta = math.atan2(goal_y - path_points[0, 1], goal_x - path_points[0, 0])
+
+            # not drawing while turning0
+            self.penholder.go_to(0.0)
+            self.go_to_angle(goal_theta)
+            self.go_to_goal(goal_x, goal_y)
+
+        # start drawing
+        self.penholder.go_to(-0.025)
+        prev_base_speed = self.base_speed
+        self.base_speed = 25
+        print("Draw!")
+
+        # draw the rest of the curve
+        for i in range(2, len(path_points), 10):
+            goal_x, goal_y = path_points[i, 0], path_points[i, 1]
+            print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+            self.go_to_goal(goal_x, goal_y, useOdo=False)
+
+        # stop drawing
+        self.base_speed = prev_base_speed
+        self.penholder.go_to(0.0)
+        self.draw_graph()
 
         for index in range(line_index_list.shape[0]):
             line = self.allLines[int(line_index_list[index, 0])]
 
-            if type(line) is Line:
-                is_parallel = line_index_list[index, 1]
-                for i in range(0, 2):
-                    goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
+            is_parallel = line_index_list[index, 1]
+            for i in range(0, 2):
+                goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
 
-                    if i == 1:
-                        goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=False)
+                if i == 1:
+                    goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=False)
 
-                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+                print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
 
-                    self.tracker.update()
-                    self.filter.update()
-                    curr_x = self.filter.x
-                    curr_y = self.filter.y
+                self.tracker.update()
+                self.filter.update()
+                curr_x = self.filter.x
+                curr_y = self.filter.y
 
-                    goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+                goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
 
-                    # not drawing while turning
-                    self.penholder.go_to(0.0)
-                    self.go_to_angle(goal_theta)
-
-                    if i == 1:
-                        # start drawing
-                        self.penholder.go_to(-0.025)
-                        print("Draw!")
-
-                    self.go_to_goal(goal_x, goal_y)
-            else:
-                # generate all points
-                ts = np.linspace(0, 1.0, 100)
-                result = np.empty((0, 3))
-                for i in range(0, line.num_segments()):
-                    for t in ts[:-2]:
-                        s = line.eval(i, t)
-                        result = np.vstack([result, s])
-
-                is_parallel = line_index_list[index, 1]
-                path_points = self.draw_path_coords(result, is_parallel)
-
-                # go to start of curve
-                goal_x, goal_y = path_points[0, 0], path_points[0, 1]
-
-                # goto start of the curve and begin drawing
-                for i in range(0,2):
-                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
-                    if i == 1:
-                        goal_x, goal_y = path_points[1, 0], path_points[1, 1]
-
-                    # turn to goal
-                    self.tracker.update()
-                    self.filter.update()
-                    curr_x = self.filter.x
-                    curr_y = self.filter.y
-
-                    goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
-
-                    # not drawing while turning
-                    self.penholder.go_to(0.0)
-                    self.go_to_angle(goal_theta)
-
-                    if i == 1:
-                        # start drawing
-                        self.penholder.go_to(-0.025)
-                        print("Draw!")
-
-                # draw the rest of the curve
-                for i in range(2, len(path_points)):
-                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
-                    goal_x, goal_y = path_points[i, 0], path_points[i, 1]
-                    self.go_to_goal(goal_x, goal_y)
-
-                # stop drawing
+                # not drawing while turning
                 self.penholder.go_to(0.0)
+                self.go_to_angle(goal_theta)
+
+                if i == 1:
+                    # start drawing
+                    self.penholder.go_to(-0.025)
+                    print("Draw!")
+
+                self.go_to_goal(goal_x, goal_y)
 
         self.draw_graph()
         self.create.stop()
@@ -205,29 +210,34 @@ class Run:
         final_result = np.empty((0, 2))
         if is_parallel:
             for i in range(0, len(result)-1):
-                theta = math.atan2(result[i + 1, 0] - result[i, 0],
-                                   result[i + 1, 1] - result[i, 1])
-                s = math.cos(theta) * self.robot_marker_distance + result[i + 1, 0], \
-                    math.sin(theta) * self.robot_marker_distance + result[i + 1, 1]
+                theta = math.atan2(result[i, 1] - result[i + 1, 1],
+                                   result[i, 0] - result[i + 1, 0]) - math.pi/2
+                s = math.cos(theta) * self.robot_marker_distance + result[i, 0], \
+                    math.sin(theta) * self.robot_marker_distance + result[i, 1]
                 final_result = np.vstack([final_result, s])
         else:
             for i in range(len(result)-1, 1, -1):
-                theta = math.atan2(result[i - 1, 0] - result[i, 0],
-                                   result[i - 1, 1] - result[i, 1])
-                s = math.cos(theta) * self.robot_marker_distance + result[i - 1, 0], \
-                    math.sin(theta) * self.robot_marker_distance + result[i - 1, 1]
+                theta = math.atan2(result[i, 1] - result[i - 1, 1],
+                                   result[i, 0] - result[i - 1, 0]) - math.pi/2
+                s = math.cos(theta) * self.robot_marker_distance + result[i, 0], \
+                    math.sin(theta) * self.robot_marker_distance + result[i, 1]
                 final_result = np.vstack([final_result, s])
         return final_result
 
 
-    def go_to_goal(self, goal_x, goal_y):
+    def go_to_goal(self, goal_x, goal_y, useOdo = False):
         while True:
             state = self.update()
 
             if state is not None:
-                curr_x = self.filter.x
-                curr_y = self.filter.y
-                curr_theta = self.filter.theta
+                if useOdo:
+                    curr_x = self.odometry.x
+                    curr_y = self.odometry.y
+                    curr_theta = self.odometry.theta
+                else:
+                    curr_x = self.filter.x
+                    curr_y = self.filter.y
+                    curr_theta = self.filter.theta
 
                 distance = math.sqrt(math.pow(goal_x - curr_x, 2) + math.pow(goal_y - curr_y, 2))
                 output_distance = self.pidDistance.update(0, distance, self.time.time())
@@ -241,9 +251,9 @@ class Run:
                 self.drive(output_theta, output_distance, self.base_speed)
 
                 if distance < 0.05:
+                    self.create.drive_direct(0, 0)
                     break
 
-                self.create.drive_direct(0, 0)
                 self.sleep(0.01)
 
     def go_to_angle(self, goal_theta):
@@ -285,7 +295,6 @@ class Run:
             path_points = self.draw_path_coords(result, True)
             plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
             path_points = self.draw_path_coords(result, False)
-            print(path_points)
             plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
 
             line_num = 0
