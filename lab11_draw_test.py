@@ -27,8 +27,6 @@ class Run:
 
         # read file and get all paths
         self.img = lab11_image.VectorImage("lab11_img1.yaml")
-        self.allLines = self.img.lines
-        #self.allLines.append(self.img.paths)
 
         # init objects
         self.create = factory.create_create()
@@ -128,7 +126,7 @@ class Run:
         # self.draw_graph()
 
         for index in range(line_index_list.shape[0]):
-            line = self.allLines[int(line_index_list[index, 0])]
+            line = self.img.lines[int(line_index_list[index, 0])]
 
             is_parallel = line_index_list[index, 1]
             for i in range(0, 2):
