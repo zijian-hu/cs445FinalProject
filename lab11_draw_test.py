@@ -81,6 +81,7 @@ class Run:
 
         # we know there is only 1 spline for this project
         path_points = self.draw_path_coords(splines[0], False)
+        self.penholder.set_color(*get_color(splines_color[0]))
 
         self.draw_graph()
 
@@ -127,15 +128,23 @@ class Run:
         self.penholder.go_to(0.0)
         # self.draw_graph()
 
+        prev_color = None
         for draw_info in line_index_list:
             index = int(draw_info[0])
             is_parallel = draw_info[1]
             is_spline = draw_info[2]
+
             if is_spline:
                 path_points = self.draw_path_coords(splines[index], is_parallel)
+                curr_color = self.img.paths[index].color
                 continue
 
             line = self.img.lines[index]
+            curr_color = self.img.lines[index].color
+
+            if curr_color != prev_color:
+                prev_color = curr_color
+                self.penholder.set_color(*get_color(curr_color))
 
             for i in range(0, 2):
                 goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
@@ -340,3 +349,15 @@ class Run:
                      self.create.sim_get_position()[1] - self.yi))
 
         return state
+
+
+def get_color(color):
+    if color == "red":
+        return 1.0, 0.0, 0.0
+    elif color == "blue":
+        return 0.0, 0.0, 1.0
+    elif color == "green":
+        return 0.0, 1.0, 0.0
+    else:
+        # black is default color
+        return 0.0, 0.0, 0.0
