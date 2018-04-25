@@ -76,8 +76,8 @@ class Run:
         self.penholder.set_color(0.0, 1.0, 0.0)
 
         start_time = self.time.time()
-        curves = PathFinder.get_spline_points(self.img.paths)
-        line_index_list = PathFinder.find_path(self.img.lines, curves)
+        splines, splines_color = PathFinder.get_spline_points(self.img.paths)
+        line_index_list = PathFinder.find_path(self.img.lines, splines, splines_color)
 
         self.draw_graph()
 
