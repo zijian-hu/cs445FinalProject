@@ -37,7 +37,7 @@ class Run:
         self.odometry = Odometry()
 
         # alpha for tracker
-        self.alpha_x = 0.4
+        self.alpha_x = 0.35
         self.alpha_y = self.alpha_x
         self.alpha_theta = 0.4
 
@@ -78,7 +78,7 @@ class Run:
         line_index_list = PathFinder.find_path(self.img.lines, splines, splines_color)
 
         # we know there is only 1 spline for this project
-        path_points = splines[0]
+        path_points = self.draw_path_coords(splines[0], False)
 
         self.draw_graph()
 
@@ -126,6 +126,10 @@ class Run:
         # self.draw_graph()
 
         for index in range(line_index_list.shape[0]):
+            is_path = line_index_list[index, 2]
+            if is_path:
+                continue
+
             line = self.img.lines[int(line_index_list[index, 0])]
 
             is_parallel = line_index_list[index, 1]
