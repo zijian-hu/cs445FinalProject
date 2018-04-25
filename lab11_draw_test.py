@@ -79,17 +79,10 @@ class Run:
         splines, splines_color = PathFinder.get_spline_points(self.img.paths)
         line_index_list = PathFinder.find_path(self.img.lines, splines, splines_color)
 
+        # we know there is only 1 spline for this project
+        path_points = splines[0]
+
         self.draw_graph()
-
-        # generate all points
-        ts = np.linspace(0, 1.0, 100)
-        result = np.empty((0, 3))
-        for i in range(0, self.img.paths[0].num_segments()):
-            for t in ts[:-2]:
-                s = self.img.paths[0].eval(i, t)
-                result = np.vstack([result, s])
-
-        path_points = self.draw_path_coords(result, True)
 
         # go to start of the curve and begin drawing
         for i in range(0, 2):
