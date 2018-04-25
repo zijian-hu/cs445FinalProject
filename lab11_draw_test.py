@@ -76,8 +76,8 @@ class Run:
         self.penholder.set_color(0.0, 1.0, 0.0)
 
         start_time = self.time.time()
-
-        line_index_list = PathFinder.find_path(self.img)
+        curves = PathFinder.get_spline_points(self.img.paths)
+        line_index_list = PathFinder.find_path(self.img.lines, curves)
 
         self.draw_graph()
 
@@ -91,8 +91,7 @@ class Run:
 
         path_points = self.draw_path_coords(result, True)
 
-
-        # goto start of the curve and begin drawing
+        # go to start of the curve and begin drawing
         for i in range(0, 2):
             # go to start of curve
             goal_x, goal_y = path_points[0, 0], path_points[0, 1]
@@ -225,7 +224,6 @@ class Run:
                     math.sin(theta) * self.robot_marker_distance + result[i, 1]
                 final_result = np.vstack([final_result, s])
         return final_result
-
 
     def go_to_goal(self, goal_x, goal_y, useOdo = False):
         while True:
