@@ -27,8 +27,6 @@ class Run:
 
         # read file and get all paths
         self.img = lab11_image.VectorImage("lab11_img1.yaml")
-        self.allLines = self.img.lines
-        #self.allLines.append(self.img.paths)
 
         # init objects
         self.create = factory.create_create()
@@ -39,7 +37,7 @@ class Run:
         self.odometry = Odometry()
 
         # alpha for tracker
-        self.alpha_x = 0.4
+        self.alpha_x = 0.35
         self.alpha_y = self.alpha_x
         self.alpha_theta = 0.4
 
@@ -76,23 +74,17 @@ class Run:
         self.penholder.set_color(0.0, 1.0, 0.0)
 
         start_time = self.time.time()
+        splines, splines_color = PathFinder.get_spline_points(self.img.paths)
+        
+        # in format [index, is_parallel, is_spline]
+        line_index_list = PathFinder.find_path(self.img.lines, splines, splines_color)
 
-        line_index_list = PathFinder.find_path(self.img)
+        # we know there is only 1 spline for this project
+        path_points = self.draw_path_coords(splines[0], False)
 
         self.draw_graph()
 
-        # generate all points
-        ts = np.linspace(0, 1.0, 100)
-        result = np.empty((0, 3))
-        for i in range(0, self.img.paths[0].num_segments()):
-            for t in ts[:-2]:
-                s = self.img.paths[0].eval(i, t)
-                result = np.vstack([result, s])
-
-        path_points = self.draw_path_coords(result, True)
-
-
-        # goto start of the curve and begin drawing
+        # go to start of the curve and begin drawing
         for i in range(0, 2):
             # go to start of curve
             goal_x, goal_y = path_points[0, 0], path_points[0, 1]
@@ -135,10 +127,16 @@ class Run:
         self.penholder.go_to(0.0)
         # self.draw_graph()
 
-        for index in range(line_index_list.shape[0]):
-            line = self.allLines[int(line_index_list[index, 0])]
+        for draw_info in line_index_list:
+            index = int(draw_info[0])
+            is_parallel = draw_info[1]
+            is_spline = draw_info[2]
+            if is_spline:
+                path_points = self.draw_path_coords(splines[index], is_parallel)
+                continue
 
-            is_parallel = line_index_list[index, 1]
+            line = self.img.lines[index]
+
             for i in range(0, 2):
                 goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
 
@@ -225,7 +223,6 @@ class Run:
                     math.sin(theta) * self.robot_marker_distance + result[i, 1]
                 final_result = np.vstack([final_result, s])
         return final_result
-
 
     def go_to_goal(self, goal_x, goal_y, useOdo = False):
         while True:
