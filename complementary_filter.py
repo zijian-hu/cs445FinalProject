@@ -36,8 +36,7 @@ class ComplementaryFilter:
         tracker_list = (self.tracker.x, self.tracker.y, self.tracker.theta)
 
         # update odometry in set intervals
-        # TODO add low pass pass filtering
-        if self.time.time() - self.time_last_update > self.update_interval and self.updateFlag is True:
+        if self.time.time() - self.time_last_update > self.update_interval and self.updateFlag:
             self.update_odometry()
             self.time_last_update = self.time.time()
 

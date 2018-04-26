@@ -73,71 +73,18 @@ class Run:
 
         self.penholder.set_color(0.0, 1.0, 0.0)
 
-        start_time = self.time.time()
+        # generate spline points and line drawing order
         splines, splines_color = PathFinder.get_spline_points(self.img.paths)
-        
         # in format [index, is_parallel, is_spline]
         line_index_list = PathFinder.find_path(self.img.lines, splines, splines_color)
 
-        # we know there is only 1 spline for this project
-        path_points = self.draw_path_coords(splines[0], False)
-        self.penholder.set_color(*get_color(splines_color[0]))
-
-        self.draw_graph()
-
-        # go to start of the curve and begin drawing
-        for i in range(0, 2):
-            # go to start of curve
-            goal_x, goal_y = path_points[0, 0], path_points[0, 1]
-            print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
-
-            if i == 1:
-                goal_x, goal_y = path_points[1, 0], path_points[1, 1]
-
-            # turn to goal
-            self.tracker.update()
-            self.filter.update()
-            curr_x = self.filter.x
-            curr_y = self.filter.y
-
-            goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
-            if i == 1:
-                goal_theta = math.atan2(goal_y - path_points[0, 1], goal_x - path_points[0, 0])
-
-            # not drawing while turning0
-            self.penholder.go_to(0.0)
-            self.go_to_angle(goal_theta)
-            self.go_to_goal(goal_x, goal_y)
-
-        # start drawing
-        self.penholder.go_to(-0.025)
-        prev_base_speed = self.base_speed
-        self.filter.updateFlag = False
-        self.base_speed = 25
-        print("Draw!")
-
-        # draw the rest of the curve
-        for i in range(2, len(path_points), 10):
-            goal_x, goal_y = path_points[i, 0], path_points[i, 1]
-            print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
-            self.go_to_goal(goal_x, goal_y, useOdo=False)
-
-        # stop drawing
-        self.base_speed = prev_base_speed
-        self.filter.updateFlag = True
-        self.penholder.go_to(0.0)
-        # self.draw_graph()
-
         prev_color = None
+
+        # loop to draw all lines and paths
         for draw_info in line_index_list:
             index = int(draw_info[0])
             is_parallel = draw_info[1]
             is_spline = draw_info[2]
-
-            if is_spline:
-                path_points = self.draw_path_coords(splines[index], is_parallel)
-                curr_color = self.img.paths[index].color
-                continue
 
             line = self.img.lines[index]
             curr_color = self.img.lines[index].color
@@ -146,32 +93,77 @@ class Run:
                 prev_color = curr_color
                 self.penholder.set_color(*get_color(curr_color))
 
-            for i in range(0, 2):
-                goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
+            # ===== spline routine =====
+            if is_spline:
+                path_points = self.draw_path_coords(splines[index], is_parallel)
+                self.penholder.set_color(*get_color(splines_color[0]))
 
-                if i == 1:
-                    goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=False)
+                # go to start of the curve and begin drawing
+                for i in range(0, 2):
+                    # go to start of curve
+                    goal_x, goal_y = path_points[0, 0], path_points[0, 1]
+                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+                    if i == 1:
+                        goal_x, goal_y = path_points[1, 0], path_points[1, 1]
 
-                print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+                    # turn to goal
+                    self.tracker.update()
+                    self.filter.update()
+                    curr_x = self.filter.x
+                    curr_y = self.filter.y
+                    goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+                    if i == 1:
+                        goal_theta = math.atan2(goal_y - path_points[0, 1], goal_x - path_points[0, 0])
+                    self.penholder.go_to(0.0)
+                    self.go_to_angle(goal_theta)
+                    self.go_to_goal(goal_x, goal_y)
 
-                self.tracker.update()
-                self.filter.update()
-                curr_x = self.filter.x
-                curr_y = self.filter.y
+                # start drawing after correctly oriented
+                # uses only odometry during spline drawing
+                self.penholder.go_to(-0.025)
+                prev_base_speed = self.base_speed
+                self.filter.updateFlag = True
+                self.base_speed = 25
+                print("Draw!")
 
-                goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+                # draw the rest of the curve. Draws every 10th point.
+                for i in range(2, len(path_points), 10):
+                    goal_x, goal_y = path_points[i, 0], path_points[i, 1]
+                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+                    self.go_to_goal(goal_x, goal_y, useOdo=False)
 
-                # not drawing while turning
+                # stop drawing and restore parameter values
+                self.base_speed = prev_base_speed
+                self.filter.updateFlag = True
                 self.penholder.go_to(0.0)
-                self.go_to_angle(goal_theta)
 
-                if i == 1:
-                    # start drawing
-                    self.penholder.go_to(-0.025)
-                    print("Draw!")
+            # ===== line routine =====
+            else:
+                for i in range(0, 2):
+                    goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=True)
 
-                self.go_to_goal(goal_x, goal_y)
+                    if i == 1:
+                        goal_x, goal_y = self.draw_coords(line, is_parallel=is_parallel, at_start=False)
 
+                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+
+                    # turn to goal
+                    self.tracker.update()
+                    self.filter.update()
+                    curr_x = self.filter.x
+                    curr_y = self.filter.y
+                    goal_theta = math.atan2(goal_y - curr_y, goal_x - curr_x)
+                    self.penholder.go_to(0.0)
+                    self.go_to_angle(goal_theta)
+
+                    if i == 1:
+                        # start drawing
+                        self.penholder.go_to(-0.025)
+                        print("Draw!")
+
+                    self.go_to_goal(goal_x, goal_y)
+
+        # graph the final result
         self.draw_graph()
         self.create.stop()
 
@@ -291,29 +283,25 @@ class Run:
                 self.odo = []
                 self.actual = []
 
-            ts = np.linspace(0, 1.0, 100)
-            result = np.empty((0, 3))
-            for i in range(0, self.img.paths[0].num_segments()):
-                for t in ts[:-2]:
-                    s = self.img.paths[0].eval(i, t)
-                    result = np.vstack([result, s])
+            for path in self.img.paths:
+                ts = np.linspace(0, 1.0, 100)
+                result = np.empty((0, 3))
+                for i in range(0, path.num_segments()):
+                    for t in ts[:-2]:
+                        s = path.eval(i, t)
+                        result = np.vstack([result, s])
 
-            plt.plot(result[:, 0], result[:, 1], self.img.paths[0].color)
+                plt.plot(result[:, 0], result[:, 1], path.color)
 
-            path_points = self.draw_path_coords(result, True)
-            plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
-            path_points = self.draw_path_coords(result, False)
-            plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
-
-            line_num = 0
+                path_points = self.draw_path_coords(result, True)
+                plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
+                path_points = self.draw_path_coords(result, False)
+                plt.plot(path_points[:, 0], path_points[:, 1], color='aqua')
 
             for line in self.img.lines:
+
                 # draw lines
                 plt.plot([line.u[0], line.v[0]], [line.u[1], line.v[1]], line.color)
-                plt.annotate(s=line_num, xy=(line.v[0], line.v[1]), xytext=(line.u[0], line.u[1]),
-                             arrowprops=dict(arrowstyle='-|>'))
-
-                # draw paths
                 theta = math.atan2(line.v[1] - line.u[1], line.v[0] - line.u[0]) + math.pi / 2
                 plt.plot([math.cos(theta) * self.robot_marker_distance + line.u[0],
                           math.cos(theta) * self.robot_marker_distance + line.v[0]],
@@ -328,7 +316,6 @@ class Run:
                           math.sin(theta) * self.robot_marker_distance + line.v[1]],
                          'aqua')
 
-                line_num += 1
             plt.legend()
             plt.show()
 
