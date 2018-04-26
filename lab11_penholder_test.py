@@ -25,7 +25,7 @@ class Run:
         # swap the pens.
         self.penholder.set_color(0.0, 1.0, 0.0)
 
-        self.penholder.go_to(-0.025)
+        self.penholder.go_to(-0.040)
 
         self.create.drive_direct(100, 100)
         self.time.sleep(5)

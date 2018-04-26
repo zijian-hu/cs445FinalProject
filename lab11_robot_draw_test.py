@@ -54,12 +54,14 @@ class Run:
         self.robot_marker_distance = 0.1906
 
         # debug vars
-        self.debug_mode = True
+        self.debug_mode = False
         self.odo = []
         self.actual = []
         self.xi = 0
         self.yi = 0
         self.init = True
+
+        self.penholder_depth = -0.040
 
     def run(self):
         self.create.start()
@@ -120,7 +122,7 @@ class Run:
 
                 # start drawing after correctly oriented
                 # uses only odometry during spline drawing
-                self.penholder.go_to(-0.025)
+                self.penholder.go_to(self.penholder_depth)
                 prev_base_speed = self.base_speed
                 self.filter.updateFlag = False
                 self.base_speed = 25
@@ -158,13 +160,13 @@ class Run:
 
                     if i == 1:
                         # start drawing
-                        self.penholder.go_to(-0.025)
+                        self.penholder.go_to(self.penholder_depth)
                         print("Draw!")
 
                     self.go_to_goal(goal_x, goal_y)
 
         # graph the final result
-        self.draw_graph()
+        # self.draw_graph()
         self.create.stop()
 
     def drive(self, theta, distance, speed):
