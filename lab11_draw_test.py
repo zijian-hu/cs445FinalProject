@@ -104,7 +104,7 @@ class Run:
                     goal_x, goal_y = path_points[0, 0], path_points[0, 1]
                     print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
                     if i == 1:
-                        goal_x, goal_y = path_points[1, 0], path_points[1, 1]
+                        goal_x, goal_y = path_points[9, 0], path_points[9, 1]
 
                     # turn to goal
                     self.tracker.update()
@@ -126,11 +126,20 @@ class Run:
                 self.base_speed = 25
                 print("Draw!")
 
+                last_drew_index = 0
+
                 # draw the rest of the curve. Draws every 10th point.
-                for i in range(2, len(path_points), 10):
+                for i in range(10, len(path_points), 5):
                     goal_x, goal_y = path_points[i, 0], path_points[i, 1]
                     print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
-                    self.go_to_goal(goal_x, goal_y, useOdo=True)
+                    self.go_to_goal(goal_x, goal_y, useOdo=False)
+                    last_drew_index = i
+
+                print("\nlast drew index {}\n".format(last_drew_index))
+                if last_drew_index < len(path_points) - 1:
+                    goal_x, goal_y = path_points[-1, 0], path_points[-1, 1]
+                    print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
+                    self.go_to_goal(goal_x, goal_y, useOdo=False)
 
                 # stop drawing and restore parameter values
                 self.base_speed = prev_base_speed
