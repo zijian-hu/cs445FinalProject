@@ -11,9 +11,12 @@ class Tracker:
         self.y = 0.0
         self.theta = 0.0
 
+        self.is_updated = False
+
     def update(self):
             r = self.create_tracker.query()
             if r is not None:
                 self.x = r["position"]["x"]
                 self.y = r["position"]["y"]
                 self.theta = r["orientation"]["y"]
+                self.is_updated = True

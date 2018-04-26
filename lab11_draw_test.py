@@ -37,9 +37,9 @@ class Run:
         self.odometry = Odometry()
 
         # alpha for tracker
-        self.alpha_x = 0.35
+        self.alpha_x = 0.3
         self.alpha_y = self.alpha_x
-        self.alpha_theta = 0.4
+        self.alpha_theta = 0.3
 
         # init controllers
         self.pidTheta = PIDController(400, 5, 50, [-10, 10], [-200, 200], is_angle=True)
@@ -130,7 +130,7 @@ class Run:
                 for i in range(2, len(path_points), 10):
                     goal_x, goal_y = path_points[i, 0], path_points[i, 1]
                     print("=== GOAL SET === {:.3f}, {:.3f}".format(goal_x, goal_y))
-                    self.go_to_goal(goal_x, goal_y, useOdo=False)
+                    self.go_to_goal(goal_x, goal_y, useOdo=True)
 
                 # stop drawing and restore parameter values
                 self.base_speed = prev_base_speed

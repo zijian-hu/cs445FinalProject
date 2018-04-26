@@ -20,10 +20,14 @@ class ComplementaryFilter:
         self.updateFlag = True
 
     def update(self):
-        if self.tracker is None:
+        if self.tracker is None or not self.tracker.is_updated:
             self.x = self.odometry.x
             self.y = self.odometry.y
             self.theta = self.odometry.theta
+            return
+
+        # reset flag
+        self.tracker.is_updated = False
 
         # convert odometry angles to fit in the range -pi to pi
         odometry_converted = self.odometry.theta
