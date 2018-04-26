@@ -122,7 +122,7 @@ class Run:
                 # uses only odometry during spline drawing
                 self.penholder.go_to(-0.025)
                 prev_base_speed = self.base_speed
-                self.filter.updateFlag = True
+                self.filter.updateFlag = False
                 self.base_speed = 25
                 print("Draw!")
 
