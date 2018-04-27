@@ -54,7 +54,7 @@ class Run:
         self.robot_marker_distance = 0.1906
 
         # debug vars
-        self.debug_mode = False
+        self.debug_mode = True
         self.odo = []
         self.actual = []
         self.xi = 0
@@ -174,7 +174,7 @@ class Run:
                     self.go_to_goal(goal_x, goal_y)
 
         # graph the final result
-        # self.draw_graph()
+        self.draw_graph()
         self.create.stop()
 
     def drive(self, theta, distance, speed):
